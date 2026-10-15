@@ -13,7 +13,6 @@ import type {
   Role,
 } from "../types";
 import { applyRemote, fetchWorkspace, pushOperational, updateOwnProfile } from "./cloud";
-import { hardcodedLogin } from "./hardcoded";
 import { PLAN_CASHBACK, PLAN_LIMITS, PLAN_PRICE, fromUsd, toUsd, uid } from "./format";
 import { supabase } from "./supabase";
 
@@ -76,6 +75,7 @@ interface StoreApi {
   topUp: (accountId: string, amount: number) => string | null;
   clearFunds: (accountId: string, amount: number) => string | null;
   renameAccount: (accountId: string, name: string) => string | null;
+  deleteAccount: (accountId: string) => string | null;
   saveAccountEntry: (accountId: string, figures: { balance: number; spend7d: number; spend30d: number; revenue30d: number; status: AccountStatus }) => string | null;
   appealAccount: (accountId: string, note: string) => string | null;
   markAccountReady: (accountId: string) => void;
@@ -88,6 +88,7 @@ interface StoreApi {
     topUp: number;
   }) => string | null;
   setCampaignStatus: (id: string, status: CampaignStatus) => void;
+  deleteCampaign: (id: string) => string | null;
   createCampaign: (input: Omit<Campaign, "id" | "spend" | "impressions" | "clicks" | "conversions" | "revenue">) => string;
   setLeadStatus: (id: string, status: "new" | "contacted") => void;
   launchTemplate: (templateId: string, accountId: string, name: string) => string | null;
@@ -184,15 +185,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     if (!email.includes("@")) return "Enter a work email.";
     if (password.length < 8) return "Use at least 8 characters.";
-    const known = hardcodedLogin(email);
-    if (known && known.password === password) {
-      const prepared = await supabase.rpc("ensure_hardcoded_users");
-      if (prepared.error) {
-        const missing = prepared.error.code === "PGRST202" || /could not find the function/i.test(prepared.error.message);
-        if (missing) return "Open supabase/schema.sql, paste it into the Supabase SQL editor, click Run, then log in again.";
-        return prepared.error.message;
-      }
-    }
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return error.message;
     if (!data.user) return "Sign-in did not return an account.";
@@ -569,6 +561,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return null;
   }, [patch]);
 
+  const deleteAccount = useCallback((id: string) => {
+    const denied = writeDenied();
+    if (denied) return denied;
+    const account = stateRef.current.accounts.find((item) => item.id === id);
+    if (!account) return "Account not found.";
+    patch((draft) => {
+      draft.accounts = draft.accounts.filter((item) => item.id !== id);
+      draft.campaigns = draft.campaigns.filter((item) => item.accountId !== id);
+      log(draft, `Deleted account ${account.name}`);
+      toast(draft, "Account deleted");
+    });
+    return null;
+  }, [patch, writeDenied]);
+
   const setCampaignStatus = useCallback((id: string, status: CampaignStatus) => {
     const denied = writeDenied();
     if (denied) {
@@ -583,6 +589,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast(draft, `Campaign ${status.replace("_", " ")}`);
     });
   }, [patch]);
+
+  const deleteCampaign = useCallback((id: string) => {
+    const denied = writeDenied();
+    if (denied) return denied;
+    const campaign = stateRef.current.campaigns.find((item) => item.id === id);
+    if (!campaign) return "Campaign not found.";
+    patch((draft) => {
+      draft.campaigns = draft.campaigns.filter((item) => item.id !== id);
+      log(draft, `Deleted campaign ${campaign.name}`);
+      toast(draft, "Campaign deleted");
+    });
+    return null;
+  }, [patch, writeDenied]);
 
   const createCampaign = useCallback((input: Omit<Campaign, "id" | "spend" | "impressions" | "clicks" | "conversions" | "revenue">) => {
     const denied = writeDenied();
@@ -1018,11 +1037,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     topUp,
     clearFunds,
     renameAccount,
+    deleteAccount,
     saveAccountEntry,
     appealAccount,
     markAccountReady,
     requestAccount,
     setCampaignStatus,
+    deleteCampaign,
     createCampaign,
     setLeadStatus,
     launchTemplate,
@@ -1055,8 +1076,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     accountsInScope,
   }), [
     state, booting, login, signup, sendMagicLink, resetPassword, logout, setLocale, setWorkspace, dismissToast, markNotice, markAllNotices,
-    deposit, settleDeposit, withdraw, claimCashback, addCard, removeCard, topUp, clearFunds, renameAccount, saveAccountEntry,
-    appealAccount, markAccountReady, requestAccount, setCampaignStatus, createCampaign, setLeadStatus,
+    deposit, settleDeposit, withdraw, claimCashback, addCard, removeCard, topUp, clearFunds, renameAccount, deleteAccount, saveAccountEntry,
+    appealAccount, markAccountReady, requestAccount, setCampaignStatus, deleteCampaign, createCampaign, setLeadStatus,
     launchTemplate, addCreative, setCreativeStatus, addTag, createBoard, toggleBoardAsset, addProject,
     toggleBenchmark, setPixelDomain, verifyPixel, sendTestEvent, toggleDestination, toggleIntegration,
     createWorkspace, inviteMember, removeMember, updateProfile, updateCompany, setPref, changePlan, applyMove,

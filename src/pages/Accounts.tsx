@@ -6,12 +6,13 @@ import { statusLabel, useStore } from "../lib/store";
 import type { Platform } from "../types";
 
 export function AccountsPage() {
-  const { state, accountsInScope, topUp } = useStore();
+  const { state, accountsInScope, topUp, deleteAccount } = useStore();
   const navigate = useNavigate();
   const [platform, setPlatform] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [topUpId, setTopUpId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [amount, setAmount] = useState("500");
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +52,7 @@ export function AccountsPage() {
                   <td className="text-right">{account.spend7d > 0 ? `${days.toFixed(1)}d` : "—"}</td>
                   <td className="px-4 text-right">
                     <button className="text-xs font-semibold text-brand" onClick={() => { setTopUpId(account.id); setError(null); }}>Top up</button>
+                    <button className="ml-3 text-xs font-semibold text-muted hover:text-brand" onClick={() => { setDeleteId(account.id); setError(null); }}>Delete</button>
                   </td>
                 </tr>
               );
@@ -72,6 +74,20 @@ export function AccountsPage() {
             </Field>
             {error ? <p className="text-sm text-brand">{error}</p> : null}
             <Button type="submit" className="w-full">Top up</Button>
+          </form>
+        </Modal>
+      ) : null}
+      {deleteId ? (
+        <Modal title="Delete account" onClose={() => setDeleteId(null)}>
+          <form className="space-y-3" onSubmit={(event) => {
+            event.preventDefault();
+            const message = deleteAccount(deleteId);
+            if (message) setError(message);
+            else setDeleteId(null);
+          }}>
+            <p className="text-sm text-muted">This removes the account and every campaign on it.</p>
+            {error ? <p className="text-sm text-brand">{error}</p> : null}
+            <Button type="submit" variant="danger" className="w-full">Delete account</Button>
           </form>
         </Modal>
       ) : null}

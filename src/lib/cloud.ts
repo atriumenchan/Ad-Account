@@ -221,6 +221,25 @@ export async function pushOperational(state: AppState) {
   const inviteRows = state.members
     .filter((member) => member.status === "invited")
     .map((member) => ({ email: member.email, full_name: member.name, role: dbRole(member.role) }));
+  const accountKeep = new Set(accountRows.map((row) => row.id));
+  const campaignKeep = new Set(campaignRows.map((row) => row.id));
+  const [existingAccounts, existingCampaigns] = await Promise.all([
+    supabase.from("ad_accounts").select("id"),
+    supabase.from("campaigns").select("id"),
+  ]);
+  if (existingAccounts.error) return existingAccounts.error.message;
+  if (existingCampaigns.error) return existingCampaigns.error.message;
+  const removedCampaigns = (existingCampaigns.data ?? []).map((row) => String(row.id)).filter((id) => !campaignKeep.has(id));
+  const removedAccounts = (existingAccounts.data ?? []).map((row) => String(row.id)).filter((id) => !accountKeep.has(id));
+  if (removedCampaigns.length) {
+    const removed = await supabase.from("campaigns").delete().in("id", removedCampaigns);
+    if (removed.error) return removed.error.message;
+  }
+  if (removedAccounts.length) {
+    const removed = await supabase.from("ad_accounts").delete().in("id", removedAccounts);
+    if (removed.error) return removed.error.message;
+  }
+
   const inviteKeep = new Set(inviteRows.map((row) => row.email.toLowerCase()));
   const existingInvites = await supabase.from("invites").select("email");
   if (existingInvites.error) return existingInvites.error.message;

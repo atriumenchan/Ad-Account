@@ -1,11 +1,15 @@
-import { Link, useParams } from "react-router-dom";
-import { Badge, Button, Card, PageHeader, toneFor } from "../components/ui";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Badge, Button, Card, Modal, PageHeader, toneFor } from "../components/ui";
 import { compact, formatDate, money, roas } from "../lib/format";
 import { statusLabel, useStore } from "../lib/store";
 
 export function CampaignDetailPage() {
   const { id = "" } = useParams();
-  const { state, setCampaignStatus, setLeadStatus } = useStore();
+  const { state, setCampaignStatus, setLeadStatus, deleteCampaign } = useStore();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const campaign = state.campaigns.find((item) => item.id === id);
   if (!campaign) return <p>Campaign not found. <Link to="/ads" className="text-brand">Back</Link></p>;
   const account = state.accounts.find((item) => item.id === campaign.accountId);
@@ -17,9 +21,12 @@ export function CampaignDetailPage() {
       <PageHeader
         title={campaign.name}
         subtitle={`${account?.name ?? "Account"} · ${campaign.countries.join(", ")} · starts ${formatDate(campaign.startDate, state.locale)}`}
-        action={campaign.status === "active"
-          ? <Button variant="secondary" onClick={() => setCampaignStatus(campaign.id, "paused")}>Pause</Button>
-          : <Button onClick={() => setCampaignStatus(campaign.id, "active")}>Launch</Button>}
+        action={<div className="flex gap-2">
+          <Button variant="danger" onClick={() => { setError(null); setConfirmDelete(true); }}>Delete</Button>
+          {campaign.status === "active"
+            ? <Button variant="secondary" onClick={() => setCampaignStatus(campaign.id, "paused")}>Pause</Button>
+            : <Button onClick={() => setCampaignStatus(campaign.id, "active")}>Launch</Button>}
+        </div>}
       />
       <Badge tone={toneFor(campaign.status)}>{statusLabel(campaign.status)}</Badge>
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -56,6 +63,20 @@ export function CampaignDetailPage() {
             ))}
           </div>
         </Card>
+      ) : null}
+      {confirmDelete ? (
+        <Modal title="Delete campaign" onClose={() => setConfirmDelete(false)}>
+          <form className="space-y-3" onSubmit={(event) => {
+            event.preventDefault();
+            const message = deleteCampaign(campaign.id);
+            if (message) setError(message);
+            else navigate("/ads");
+          }}>
+            <p className="text-sm text-muted">This removes the campaign from Ads Manager.</p>
+            {error ? <p className="text-sm text-brand">{error}</p> : null}
+            <Button type="submit" variant="danger" className="w-full">Delete campaign</Button>
+          </form>
+        </Modal>
       ) : null}
     </div>
   );

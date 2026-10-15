@@ -2,27 +2,22 @@ import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Field, TextInput } from "../components/ui";
-import { HARDCODED_LOGINS } from "../lib/hardcoded";
 import { useStore } from "../lib/store";
-
-const admin = HARDCODED_LOGINS[0];
 
 export function LoginPage() {
   const { login } = useStore();
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string>(admin.email);
-  const [password, setPassword] = useState<string>(admin.password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(nextEmail = email, nextPassword = password) {
-    setEmail(nextEmail);
-    setPassword(nextPassword);
+  async function submit() {
     setBusy(true);
     setError(null);
-    const message = await login(nextEmail, nextPassword);
+    const message = await login(email, password);
     setBusy(false);
     if (message) setError(message);
     else navigate("/");
@@ -37,21 +32,6 @@ export function LoginPage() {
       }}
     >
       <h1 className="text-center text-3xl font-semibold tracking-tight">Log in to your account</h1>
-      <div className="grid grid-cols-2 gap-2">
-        {HARDCODED_LOGINS.map((account) => (
-          <button
-            key={account.email}
-            type="button"
-            className="rounded-xl border border-line px-3 py-2 text-left hover:border-ink"
-            onClick={() => void submit(account.email, account.password)}
-            disabled={busy}
-          >
-            <span className="block text-sm font-semibold">{account.label}</span>
-            <span className="block truncate text-xs text-muted">{account.email}</span>
-            <span className="block text-xs text-muted">{account.password}</span>
-          </button>
-        ))}
-      </div>
       <Field label="Email">
         <TextInput type="email" required placeholder="name@company.com" value={email} onChange={(event) => setEmail(event.target.value)} />
       </Field>

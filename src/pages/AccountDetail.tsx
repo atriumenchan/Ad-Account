@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Badge, Bars, Button, Card, Field, Modal, PageHeader, TextArea, TextInput, toneFor } from "../components/ui";
 import { formatDate, money, runwayDays } from "../lib/format";
 import { statusLabel, useStore } from "../lib/store";
@@ -7,9 +7,10 @@ import type { AccountStatus } from "../types";
 
 export function AccountDetailPage() {
   const { id = "" } = useParams();
-  const { state, topUp, clearFunds, renameAccount, appealAccount, markAccountReady, saveAccountEntry } = useStore();
+  const { state, topUp, clearFunds, renameAccount, appealAccount, markAccountReady, saveAccountEntry, deleteAccount } = useStore();
+  const navigate = useNavigate();
   const account = state.accounts.find((item) => item.id === id);
-  const [mode, setMode] = useState<"topup" | "clear" | "rename" | "appeal" | "figures" | null>(null);
+  const [mode, setMode] = useState<"topup" | "clear" | "rename" | "appeal" | "figures" | "delete" | null>(null);
   const [amount, setAmount] = useState("500");
   const [name, setName] = useState(account?.name ?? "");
   const [note, setNote] = useState("");
@@ -27,6 +28,7 @@ export function AccountDetailPage() {
         title={account.name}
         subtitle={`${account.platform} · ${account.page} · ${account.timezone}`}
         action={<div className="flex flex-wrap gap-2">
+          <Button variant="danger" onClick={() => setMode("delete")}>Delete</Button>
           <Button variant="secondary" onClick={() => { setFigures({ balance: String(account.balance), spend7d: String(account.spend7d), spend30d: String(account.spend30d), revenue30d: String(account.revenue30d), status: account.status }); setMode("figures"); }}>Edit entry</Button>
           <Button variant="secondary" onClick={() => { setName(account.name); setMode("rename"); }}>Rename</Button>
           <Button variant="secondary" onClick={() => setMode("clear")}>Clear funds</Button>
@@ -62,7 +64,21 @@ export function AccountDetailPage() {
           ))}
         </div>
       </Card>
-      {mode ? (
+      {mode === "delete" ? (
+        <Modal title="Delete account" onClose={close}>
+          <form className="space-y-3" onSubmit={(event) => {
+            event.preventDefault();
+            const message = deleteAccount(account.id);
+            if (message) setError(message);
+            else navigate("/accounts");
+          }}>
+            <p className="text-sm text-muted">This removes the account and every campaign on it.</p>
+            {error ? <p className="text-sm text-brand">{error}</p> : null}
+            <Button type="submit" variant="danger" className="w-full">Delete account</Button>
+          </form>
+        </Modal>
+      ) : null}
+      {mode && mode !== "delete" ? (
         <Modal title={mode === "topup" ? "Top up" : mode === "clear" ? "Clear funds" : mode === "rename" ? "Rename account" : mode === "figures" ? "Edit entry" : "Appeal restriction"} onClose={close}>
           <form className="space-y-3" onSubmit={(event) => {
             event.preventDefault();

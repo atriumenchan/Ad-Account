@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Badge, Button, PageHeader, SelectInput, TextInput, toneFor } from "../components/ui";
+import { Badge, Button, Modal, PageHeader, SelectInput, TextInput, toneFor } from "../components/ui";
 import { money, roas } from "../lib/format";
 import { statusLabel, useStore } from "../lib/store";
 
 export function AdsPage() {
-  const { state, accountsInScope, setCampaignStatus } = useStore();
+  const { state, accountsInScope, setCampaignStatus, deleteCampaign } = useStore();
   const navigate = useNavigate();
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const scoped = new Set(accountsInScope().map((account) => account.id));
   const rows = useMemo(() => state.campaigns.filter((campaign) => {
     const q = search.trim().toLowerCase();
@@ -43,6 +45,7 @@ export function AdsPage() {
                   <td className="px-4 text-right">
                     {campaign.status === "active" ? <button className="text-xs font-semibold text-brand" onClick={() => setCampaignStatus(campaign.id, "paused")}>Pause</button> : null}
                     {campaign.status === "paused" || campaign.status === "draft" ? <button className="text-xs font-semibold text-brand" onClick={() => setCampaignStatus(campaign.id, "active")}>Launch</button> : null}
+                    <button className="ml-3 text-xs font-semibold text-muted hover:text-brand" onClick={() => { setDeleteId(campaign.id); setError(null); }}>Delete</button>
                   </td>
                 </tr>
               );
@@ -51,6 +54,20 @@ export function AdsPage() {
         </table>
         {rows.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted">No campaigns match.</p> : null}
       </div>
+      {deleteId ? (
+        <Modal title="Delete campaign" onClose={() => setDeleteId(null)}>
+          <form className="space-y-3" onSubmit={(event) => {
+            event.preventDefault();
+            const message = deleteCampaign(deleteId);
+            if (message) setError(message);
+            else setDeleteId(null);
+          }}>
+            <p className="text-sm text-muted">This removes the campaign from Ads Manager.</p>
+            {error ? <p className="text-sm text-brand">{error}</p> : null}
+            <Button type="submit" variant="danger" className="w-full">Delete campaign</Button>
+          </form>
+        </Modal>
+      ) : null}
     </div>
   );
 }
